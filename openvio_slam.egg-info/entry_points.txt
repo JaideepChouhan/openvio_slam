@@ -1,0 +1,2 @@
+[console_scripts]
+openvio_slam_node = openvio_slam.ros.vio_node:main

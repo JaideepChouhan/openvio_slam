@@ -1,0 +1,99 @@
+# ============================================================
+# OpenVIO-SLAM Configuration — complete reference
+# Updated to match the rewritten vio_node.py / slam_bridge_node.py pair.
+# Changes from the previous version are marked with "# CHANGED:".
+# ============================================================
+
+frontend:
+  n_features:         150
+  grid_rows:          4
+  grid_cols:          5
+  min_features:       80
+  min_track_length:   3
+  fast_threshold:     25
+  scale_factor:       1.2
+  n_levels:           8
+
+estimator:
+  window_size:        8
+  pixel_noise:        0.5
+  chi2_threshold:     0.95
+
+imu:
+  gyro_noise:       0.000050        # rad/s/√Hz
+  accel_noise:      0.020000     # m/s²/√Hz # was 0.081906 — correct for actual ~50Hz delivery
+  gyro_bias_walk:   0.000135     # rad/s²/√Hz
+  # CHANGED: was 0.142868 — that is ~100x too high for a phone-grade IMU
+  # (typical is 1e-3 to 1e-4 m/s³/√Hz). This was very likely letting the
+  # accelerometer bias estimate wander freely and injecting noise straight
+  # into your trajectory. Re-run tools/imu_noise_calibration.py and check
+  # the output units before trusting a new value; if you don't re-calibrate,
+  # this value is a much safer starting point than the old one.
+  accel_bias_walk:  0.002000 # was 0.320862 — this is the main runaway cause
+  gravity:          9.81
+
+extrinsic:
+  # R_IC: rotation matrix — camera frame → IMU frame
+  R_IC:
+    - [0.999902, -0.011425,  0.008047]
+    - [0.011466,  0.999921, -0.005083]
+    - [-0.007988, 0.005175,  0.999955]
+  # p_IC: camera origin expressed in IMU frame (metres)
+  # Hand-measured, not solved — see report section 4.7/6. Re-calibrate with
+  # Kalibr or a checkerboard run that includes large rotations on all axes
+  # when you get the chance; this is a secondary noise/reprojection source.
+  p_IC: [0.065, 0.005, -0.005]
+
+constraints:
+  # CHANGED: was 0.01 in the previous deployed yaml (the report claimed
+  # 0.1 as "final" but the live file didn't match it). 0.01 makes the
+  # gyro-variance gate trigger far too easily.
+  zupt_gyro_var_threshold:  0.1
+  zupt_noise:               0.05
+  # CHANGED: was true in the deployed yaml (report claimed it was disabled).
+  # Leave this off until you've confirmed the new ZUPT gating fixes your
+  # trajectory; the planar constraint forces vz/roll/pitch toward zero every
+  # step and can mask/compound a misbehaving ZUPT. Re-enable once odometry
+  # looks clean on flat ground.
+  planar_enabled:           false
+  planar_vz_noise:          0.05
+  planar_roll_noise:        0.01
+  planar_pitch_noise:       0.01
+  # NEW: visual-motion gate for ZUPT. ZUPT only fires when BOTH the IMU
+  # detector AND tracked-feature optical flow agree the platform is not
+  # moving. This is the actual fix for "ZUPT: YES" during constant-velocity
+  # motion, since IMU alone cannot sense constant-velocity translation.
+  # Tune zupt_visual_flow_px_threshold up if ZUPT now never fires even when
+  # genuinely stationary (e.g. due to image noise); tune it down if it's
+  # still firing during slow motion.
+  zupt_visual_flow_px_threshold: 1.0   # undistorted pixels/frame
+  zupt_min_features:             15    # min tracked features to trust the flow signal
+
+init:
+  static_init_duration:     3.0
+  min_parallax_deg:         2.0
+  min_imu_excitation:       0.01
+  min_pnp_inliers:          20
+
+loop_closure:
+  vocabulary_path:          config/orb_vocabulary.pkl
+  bow_similarity_threshold: 0.6
+  min_loop_inliers:         20
+  min_keyframe_spacing:     20
+  pose_graph_max_iter:      50
+
+map:
+  max_map_points:       50000
+  cull_found_ratio:     0.15
+  kf_min_translation:   0.10
+  kf_min_rotation_deg:  10.0
+
+persistence:
+  map_dir:              ~/.openvio_slam/maps/
+  auto_save:            true
+  auto_load:            false
+
+display:
+  publish_map_points_hz:    1.0
+  max_display_points:       25000
+  trajectory_history:       2000

@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: openvio-slam
+Version: 1.0.0
+Summary: From-scratch monocular VIO-SLAM for indoor ground robots
+Author: OpenVIO-SLAM Contributors
+License: MIT
+Requires-Python: >=3.8
+License-File: LICENSE
