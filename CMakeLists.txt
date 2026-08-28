@@ -10,6 +10,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 
 ament_python_install_package(${PROJECT_NAME})
 
@@ -19,10 +20,27 @@ install(PROGRAMS
   RENAME openvio_slam_node
 )
 
+install(PROGRAMS
+  openvio_slam/imu/imu_publisher_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME imu_publisher_node
+)
+
+install(PROGRAMS
+  web_controller/web_controller_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME web_controller_node
+)
+
 install(DIRECTORY
   launch
   config
   DESTINATION share/${PROJECT_NAME}/
+)
+
+install(DIRECTORY
+  web_controller/static
+  DESTINATION share/${PROJECT_NAME}/web_controller/
 )
 
 ament_package()

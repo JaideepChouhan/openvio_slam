@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenVIO-SLAM Controller</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="title-group">
+        <span class="brand">OpenVIO SLAM</span>
+        <span id="status-dot" class="status-dot connected"></span>
+        <span id="connection-state">CONNECTED</span>
+      </div>
+      <div class="stats-row">
+        <span id="ip-value">IP: localhost</span>
+        <span id="ros-time">ROS TIME: --</span>
+        <span id="cpu-value">CPU: --</span>
+        <span id="mem-value">MEM: --</span>
+        <span id="imu-hz">IMU: --Hz</span>
+        <span id="cam-hz">CAM: --Hz</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="camera-panel panel">
+        <div class="panel-head">
+          <span>CAMERA FEED</span>
+          <div class="badge-group">
+            <span id="fps-badge" class="mini-badge">FPS 0</span>
+            <span id="latency-badge" class="mini-badge">LAT 0 ms</span>
+          </div>
+        </div>
+        <div class="camera-wrap">
+          <canvas id="cam-feed" width="960" height="540"></canvas>
+          <div class="overlay-grid"></div>
+          <div id="zupt-badge" class="zupt-badge">ZUPT</div>
+        </div>
+      </section>
+
+      <aside class="telemetry-panel panel">
+        <div class="panel-head"><span>TELEMETRY</span></div>
+        <div class="chart-box">
+          <canvas id="gyroChart"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="accelChart"></canvas>
+        </div>
+        <div class="map-box">
+          <canvas id="miniMap" width="320" height="180"></canvas>
+        </div>
+        <div class="odom-box">
+          <div class="odom-row"><span>X</span><strong id="odom-x">0.00m</strong></div>
+          <div class="odom-row"><span>Y</span><strong id="odom-y">0.00m</strong></div>
+          <div class="odom-row"><span>Yaw</span><strong id="odom-yaw">0.00°</strong></div>
+          <div class="odom-row"><span>Vx</span><strong id="odom-vx">0.00</strong></div>
+          <div class="odom-row"><span>MapPts</span><strong id="map-points">0</strong></div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="control-strip panel">
+      <div class="controls-left">
+        <div class="speed-block">
+          <label>Speed</label>
+          <div class="speed-meter"><span id="speed-fill"></span></div>
+        </div>
+        <div class="buttons">
+          <button data-key="w">W</button>
+          <button data-key="a">A</button>
+          <button data-key="s">S</button>
+          <button data-key="d">D</button>
+        </div>
+      </div>
+      <div id="joystick" class="joystick"></div>
+      <div class="quick-actions">
+        <button id="recal-btn">REC</button>
+        <button id="stop-btn" class="danger">STOP</button>
+      </div>
+    </section>
+
+    <section class="console-panel panel">
+      <div class="panel-head">
+        <span>DEBUG CONSOLE</span>
+        <div class="button-row">
+          <button id="reset-btn">RESET SLAM</button>
+          <button id="export-btn">EXPORT PATH</button>
+          <button id="screenshot-btn">SCREENSHOT</button>
+        </div>
+      </div>
+      <pre id="console-log">system ready</pre>
+    </section>
+  </div>
+
+  <script src="controller.js"></script>
+</body>
+</html>

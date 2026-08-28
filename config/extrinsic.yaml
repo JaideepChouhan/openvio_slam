@@ -1,31 +1,14 @@
 extrinsic:
   R_IC:
-  - - 0.9991301334329684
-    - -0.015224588088660165
-    - -0.03882252418054804
-  - - 0.014257766740331046
-    - 0.9995842685961335
-    - -0.02506004913624623
-  - - 0.03918791336364976
-    - 0.024484727743297303
-    - 0.9989318322856368
-  p_IC:
-  - -0.3456461275998205
-  - -1.5088318560937974
-  - -2.0981920301536716
-  q_IC:
-  - 0.9997057359936897
-  - 0.01238984010387148
-  - -0.019508349991272947
-  - 0.00737275824462588
-  _comment: R_IC rotates vectors from Camera to IMU frame. p_IC is the position of
-    the camera origin in the IMU frame.
+    - [1.0, 0.0, 0.0]
+    - [0.0, 1.0, 0.0]
+    - [0.0, 0.0, 1.0]
+  p_IC: [0.0, 0.0, 0.0]
+  comment: "IMU = Arduino MPU-9250 mounted flat. p_IC = camera position in IMU frame (m). Measure with ruler. Positive X = forward, Y = left, Z = up."
+
 calibration_info:
-  timestamp: '2026-06-29T14:28:54'
-  n_frames_used: 2185
-  board_size: 8x6
-  square_size_m: 0.2
-  euler_zyx_deg:
-  - 0.8175655879425231
-  - -2.2458771234373143
-  - 1.4040905263640318
+  timestamp: '2026-08-28T00:00:00'
+  n_frames_used: 0
+  board_size: 'not calibrated'
+  square_size_m: 0.0
+  euler_zyx_deg: [0.0, 0.0, 0.0]
