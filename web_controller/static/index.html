@@ -1,104 +1,250 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenVIO-SLAM Controller</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenVIO-SLAM Controller</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;600&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="title-group">
-        <span class="brand">OpenVIO SLAM</span>
-        <span id="status-dot" class="status-dot connected"></span>
-        <span id="connection-state">CONNECTED</span>
-      </div>
-      <div class="stats-row">
-        <span id="ip-value">IP: localhost</span>
-        <span id="ros-time">ROS TIME: --</span>
-        <span id="cpu-value">CPU: --</span>
-        <span id="mem-value">MEM: --</span>
-        <span id="imu-hz">IMU: --Hz</span>
-        <span id="cam-hz">CAM: --Hz</span>
-      </div>
-    </header>
 
-    <main class="layout">
-      <section class="camera-panel panel">
-        <div class="panel-head">
-          <span>CAMERA FEED</span>
-          <div class="badge-group">
-            <span id="fps-badge" class="mini-badge">FPS 0</span>
-            <span id="latency-badge" class="mini-badge">LAT 0 ms</span>
-          </div>
-        </div>
-        <div class="camera-wrap">
-          <canvas id="cam-feed" width="960" height="540"></canvas>
-          <div class="overlay-grid"></div>
-          <div id="zupt-badge" class="zupt-badge">ZUPT</div>
-        </div>
-      </section>
-
-      <aside class="telemetry-panel panel">
-        <div class="panel-head"><span>TELEMETRY</span></div>
-        <div class="chart-box">
-          <canvas id="gyroChart"></canvas>
-        </div>
-        <div class="chart-box">
-          <canvas id="accelChart"></canvas>
-        </div>
-        <div class="map-box">
-          <canvas id="miniMap" width="320" height="180"></canvas>
-        </div>
-        <div class="odom-box">
-          <div class="odom-row"><span>X</span><strong id="odom-x">0.00m</strong></div>
-          <div class="odom-row"><span>Y</span><strong id="odom-y">0.00m</strong></div>
-          <div class="odom-row"><span>Yaw</span><strong id="odom-yaw">0.00°</strong></div>
-          <div class="odom-row"><span>Vx</span><strong id="odom-vx">0.00</strong></div>
-          <div class="odom-row"><span>MapPts</span><strong id="map-points">0</strong></div>
-        </div>
-      </aside>
-    </main>
-
-    <section class="control-strip panel">
-      <div class="controls-left">
-        <div class="speed-block">
-          <label>Speed</label>
-          <div class="speed-meter"><span id="speed-fill"></span></div>
-        </div>
-        <div class="buttons">
-          <button data-key="w">W</button>
-          <button data-key="a">A</button>
-          <button data-key="s">S</button>
-          <button data-key="d">D</button>
-        </div>
-      </div>
-      <div id="joystick" class="joystick"></div>
-      <div class="quick-actions">
-        <button id="recal-btn">REC</button>
-        <button id="stop-btn" class="danger">STOP</button>
-      </div>
-    </section>
-
-    <section class="console-panel panel">
-      <div class="panel-head">
-        <span>DEBUG CONSOLE</span>
-        <div class="button-row">
-          <button id="reset-btn">RESET SLAM</button>
-          <button id="export-btn">EXPORT PATH</button>
-          <button id="screenshot-btn">SCREENSHOT</button>
-        </div>
-      </div>
-      <pre id="console-log">system ready</pre>
-    </section>
+<!-- ── TOP BAR ─────────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="brand-icon">⬡</span>
+    <span class="brand-name">OpenVIO<span class="accent">SLAM</span></span>
+    <span class="brand-ver">9-DOF</span>
   </div>
+  <div class="topbar-status">
+    <div class="status-pill" id="conn-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">CONNECTING</span>
+    </div>
+  </div>
+  <div class="topbar-metrics">
+    <div class="metric"><span class="metric-label">CPU</span><span class="metric-val" id="m-cpu">–</span></div>
+    <div class="metric"><span class="metric-label">MEM</span><span class="metric-val" id="m-mem">–</span></div>
+    <div class="metric"><span class="metric-label">IMU</span><span class="metric-val" id="m-imu">–Hz</span></div>
+    <div class="metric"><span class="metric-label">CAM</span><span class="metric-val" id="m-cam">–Hz</span></div>
+    <div class="metric"><span class="metric-label">PTS</span><span class="metric-val" id="m-pts">–</span></div>
+  </div>
+  <div class="topbar-time" id="ros-time">00:00:00</div>
+</header>
 
-  <script src="controller.js"></script>
+<!-- ── MAIN GRID ────────────────────────────────────────────────────────────── -->
+<main class="main-grid">
+
+  <!-- ══ LEFT COLUMN ══ -->
+  <section class="left-panel">
+
+    <!-- Camera feed -->
+    <div class="panel cam-panel">
+      <div class="panel-header">
+        <span class="panel-title">CAMERA FEED</span>
+        <div class="cam-badges">
+          <span class="badge" id="fps-badge">–fps</span>
+          <span class="badge badge-dim" id="res-badge">–×–</span>
+          <span class="badge badge-cyan hidden" id="zupt-badge">ZUPT</span>
+          <button class="btn-icon" id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
+        </div>
+      </div>
+      <div class="cam-container">
+        <canvas id="cam-feed"></canvas>
+        <div class="cam-scanlines"></div>
+        <div class="cam-crosshair">
+          <div class="ch-h"></div><div class="ch-v"></div>
+        </div>
+        <div class="cam-overlay-tl" id="latency-display">–ms</div>
+      </div>
+    </div>
+
+    <!-- Drive controls -->
+    <div class="panel control-panel">
+      <div class="panel-header">
+        <span class="panel-title">DRIVE CONTROL</span>
+        <span class="badge badge-dim">WASD / ↑↓←→ / Space=stop</span>
+      </div>
+      <div class="controls-row">
+        <div class="speed-section">
+          <label class="ctrl-label">SPEED</label>
+          <div class="speed-bar-wrap">
+            <input type="range" id="speed-slider" min="0" max="100" value="60">
+            <div class="speed-bar-fill" id="speed-fill"></div>
+          </div>
+          <span class="speed-val" id="speed-val">60%</span>
+        </div>
+        <div class="dpad">
+          <button class="dpad-btn dpad-up"    id="btn-fwd" title="Forward (W/↑)">▲</button>
+          <button class="dpad-btn dpad-left"  id="btn-lft" title="Left (A/←)">◄</button>
+          <button class="dpad-btn dpad-stop"  id="btn-stp" title="Stop (Space)">■</button>
+          <button class="dpad-btn dpad-right" id="btn-rgt" title="Right (D/→)">►</button>
+          <button class="dpad-btn dpad-down"  id="btn-bwd" title="Backward (S/↓)">▼</button>
+        </div>
+        <div class="joystick-wrap">
+          <label class="ctrl-label">JOYSTICK</label>
+          <div id="joystick-zone"></div>
+        </div>
+      </div>
+    </div>
+
+  </section><!-- end left-panel -->
+
+  <!-- ══ RIGHT COLUMN ══ -->
+  <section class="right-panel">
+
+    <!-- Odometry readout -->
+    <div class="panel odom-panel">
+      <div class="panel-header"><span class="panel-title">ODOMETRY</span></div>
+      <div class="odom-grid">
+        <div class="odom-cell">
+          <span class="odom-label">X</span>
+          <span class="odom-val" id="odom-x">+0.000</span>
+          <span class="odom-unit">m</span>
+        </div>
+        <div class="odom-cell">
+          <span class="odom-label">Y</span>
+          <span class="odom-val" id="odom-y">+0.000</span>
+          <span class="odom-unit">m</span>
+        </div>
+        <div class="odom-cell">
+          <span class="odom-label">YAW</span>
+          <span class="odom-val" id="odom-yaw">+0.0</span>
+          <span class="odom-unit">°</span>
+        </div>
+        <div class="odom-cell">
+          <span class="odom-label">Vx</span>
+          <span class="odom-val" id="odom-vx">+0.000</span>
+          <span class="odom-unit">m/s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compass + Mini-map side by side -->
+    <div class="panel compass-map-panel">
+      <div class="panel-header">
+        <span class="panel-title">COMPASS &amp; TRAJECTORY</span>
+        <button class="btn-sm" id="map-reset-btn">RESET MAP</button>
+      </div>
+      <div class="compass-map-row">
+
+        <!-- Real magnetic compass (tilt-compensated from /imu/mag) -->
+        <div class="compass-wrap">
+          <label class="ctrl-label">MAG HEADING</label>
+          <!--
+            compass-canvas: drawn by drawCompass() in controller.js
+            Uses real /imu/mag data with tilt compensation from /imu accel.
+            Parts 1-3 used odometry yaw here — now uses magnetometer.
+          -->
+          <canvas id="compass-canvas" width="160" height="160"></canvas>
+          <div class="compass-heading-row">
+            <span class="ctrl-label">HDG</span>
+            <span class="odom-val" id="mag-heading">0.0</span>
+            <span class="odom-unit">°</span>
+          </div>
+          <!-- Mag XYZ values (populated by handleMag in controller.js) -->
+          <div class="mag-readout-row" id="mag-readout">–</div>
+        </div>
+
+        <!-- Mini trajectory map -->
+        <div class="minimap-wrap">
+          <label class="ctrl-label">PATH</label>
+          <canvas id="mini-map" width="180" height="160"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Gyroscope chart -->
+    <div class="panel chart-panel">
+      <div class="panel-header">
+        <span class="panel-title">GYROSCOPE (rad/s)</span>
+        <span class="badge badge-dim">Gx Gy Gz</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="gyro-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Accelerometer chart -->
+    <div class="panel chart-panel">
+      <div class="panel-header">
+        <span class="panel-title">ACCELEROMETER (m/s²)</span>
+        <span class="badge badge-dim">Ax Ay Az</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="accel-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Magnetometer chart (NEW — 9-DOF) -->
+    <div class="panel chart-panel">
+      <div class="panel-header">
+        <span class="panel-title">MAGNETOMETER (µT)</span>
+        <!--
+          This chart was not in Parts 1-3.
+          Added because your Arduino sends mx/my/mz in the 43-byte packet.
+          Populated by handleMag() → pushChart(magChart, ...) in controller.js
+        -->
+        <span class="badge badge-purple">Mx My Mz</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="mag-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="panel action-panel">
+      <div class="panel-header"><span class="panel-title">ACTIONS</span></div>
+      <div class="action-grid">
+        <button class="action-btn btn-cyan"   id="btn-recal"
+                title="Send CAL to Arduino — keep robot still!">⟳ RECAL IMU</button>
+        <button class="action-btn btn-orange" id="btn-reset"
+                title="Reset SLAM map (R)">↺ RESET SLAM</button>
+        <button class="action-btn btn-purple" id="btn-export"
+                title="Export trajectory CSV (E)">⬇ PATH CSV</button>
+        <button class="action-btn btn-dim"    id="btn-shot"
+                title="Screenshot camera (Ctrl+S)">⊡ SCREENSHOT</button>
+        <button class="action-btn btn-rec"    id="btn-rec"
+                title="Record /imu /imu/mag /image /odom">● REC</button>
+        <button class="action-btn btn-red"    id="btn-shutdown"
+                title="Shutdown Raspberry Pi">⏻ SHUTDOWN</button>
+      </div>
+    </div>
+
+  </section><!-- end right-panel -->
+
+</main>
+
+<!-- ── DEBUG CONSOLE ─────────────────────────────────────────────────────────── -->
+<div class="console-wrap" id="console-wrap">
+  <div class="console-header" id="console-toggle">
+    <span>DEBUG CONSOLE</span>
+    <span class="console-badge" id="warn-count">0 warn</span>
+    <input type="text" id="console-filter"
+           placeholder="filter…" onclick="event.stopPropagation()">
+    <button class="btn-sm" id="console-clear">CLR</button>
+    <span class="console-chevron" id="console-chevron">▲</span>
+  </div>
+  <div class="console-body" id="console-body"></div>
+</div>
+
+<!-- ── MODAL ─────────────────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Confirm</div>
+    <div class="modal-msg"   id="modal-msg">Are you sure?</div>
+    <div class="modal-btns">
+      <button class="action-btn btn-dim"    id="modal-cancel">Cancel</button>
+      <button class="action-btn btn-orange" id="modal-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ────────────────────────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+<script src="controller.js"></script>
 </body>
 </html>

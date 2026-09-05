@@ -1,226 +1,406 @@
 #!/usr/bin/env python3
-import asyncio
-import base64
-import json
-import os
-import threading
-from pathlib import Path
+"""
+web_controller_node.py  —  OpenVIO-SLAM Web Controller  (Protocol-Corrected v2)
+=================================================================================
 
-import cv2
-import numpy as np
-import psutil
+CHANGES FROM PARTS 1-3:
+  • Subscribes to /imu/mag (sensor_msgs/MagneticField) in addition to /imu
+  • Forwards magnetometer data to browser as {"type":"mag", ...}
+  • Motor commands use ASCII text via imu_publisher_node (no direct serial)
+  • All other logic unchanged from Part 2 reference implementation
+
+ARCHITECTURE:
+  Browser ←→ WebSocket (port 8765) ←→ THIS NODE ←→ ROS 2 topics
+  Browser ←→ HTTP       (port 8080) ←→ THIS NODE → static/index.html
+
+Threading model:
+  Thread 1: rclpy.spin(node)   — all ROS callbacks
+  Thread 2: asyncio event loop — HTTP + WebSocket servers
+  Bridge:   thread-safe asyncio calls from ROS thread → asyncio loop
+"""
+
 import rclpy
-import websockets
-from cv_bridge import CvBridge
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import Image, Imu, PointCloud2
-from std_msgs.msg import Bool, Int16MultiArray
-from nav_msgs.msg import Odometry
+from rclpy.qos  import QoSProfile, ReliabilityPolicy, HistoryPolicy
+
+from sensor_msgs.msg     import Image, Imu, PointCloud2, MagneticField
+from nav_msgs.msg        import Odometry
+from std_msgs.msg        import Int16MultiArray, Bool
 from diagnostic_msgs.msg import DiagnosticArray
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+
+import asyncio
+import threading
+import json
+import base64
+import time
+import subprocess
+import os
+import math
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from functools   import partial
+
+try:
+    import websockets
+    import psutil
+    HAS_DEPS = True
+except ImportError:
+    HAS_DEPS = False
+
+import numpy as np
 
 
 class WebControllerNode(Node):
-    """ROS-to-browser controller with HTTP + WebSocket bridge."""
 
     def __init__(self):
         super().__init__('web_controller')
-        self.declare_parameters(
-            namespace='',
-            parameters=[
-                ('http_port', 8080),
-                ('ws_port', 8765),
-                ('static_dir', ''),
-                ('max_cam_fps', 10),
-            ],
-        )
 
-        self.http_port = int(self.get_parameter('http_port').value)
-        self.ws_port = int(self.get_parameter('ws_port').value)
-        self.static_dir = self.get_parameter('static_dir').value or str(Path(__file__).resolve().parent / 'static')
-        self.max_cam_fps = float(self.get_parameter('max_cam_fps').value)
+        if not HAS_DEPS:
+            self.get_logger().error(
+                "Missing deps: pip3 install websockets psutil --break-system-packages")
+            raise RuntimeError("Missing dependencies")
 
-        qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST, depth=5)
+        self.declare_parameter('http_port',    8080)
+        self.declare_parameter('ws_port',      8765)
+        self.declare_parameter('max_cam_fps',  10.0)
+        self.declare_parameter('record_path',  '~/.ros/bags/')
 
-        self._bridge = CvBridge()
-        self._clients = set()
-        self._state_lock = threading.Lock()
-        self._last_image_time = 0.0
-        self._last_cam_stamp = 0.0
-        self._last_imu = {'gx': 0.0, 'gy': 0.0, 'gz': 0.0, 'ax': 0.0, 'ay': 0.0, 'az': 0.0, 'stamp': 0.0}
-        self._last_odom = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'vx': 0.0, 'vy': 0.0, 'stamp': 0.0}
-        self._map_points_n = 0
-        self._diag_payload = []
+        self._http_port   = self.get_parameter('http_port').value
+        self._ws_port     = self.get_parameter('ws_port').value
+        self._max_cam_fps = self.get_parameter('max_cam_fps').value
+        self._record_path = os.path.expanduser(
+            self.get_parameter('record_path').value)
 
-        self.pub_motor = self.create_publisher(Int16MultiArray, '/robot_control', qos)
-        self.pub_imu_recal = self.create_publisher(Bool, '/imu_recal', qos)
-        self.pub_slam_reset = self.create_publisher(Bool, '/slam_reset', qos)
+        # ── Shared state ──────────────────────────────────────────────────────
+        self._ws_clients  = set()
+        self._ws_lock     = threading.Lock()
+        self._loop        = None          # asyncio event loop (set in thread 2)
 
-        self.create_subscription(Image, '/image', self._image_callback, qos)
-        self.create_subscription(Imu, '/imu', self._imu_callback, qos)
-        self.create_subscription(Odometry, '/odom', self._odom_callback, qos)
-        self.create_subscription(PointCloud2, '/openvio/map_points', self._map_callback, qos)
-        self.create_subscription(DiagnosticArray, '/diagnostics', self._diag_callback, qos)
+        self._last_cam_time = 0.0
+        self._cam_interval  = 1.0 / self._max_cam_fps
+        self._bag_proc      = None
+        self._odom_path     = []          # [(x, y), ...] for path export
 
-        self._http_server = None
-        self._ws_server = None
-        self._loop = None
-        self._async_thread = threading.Thread(target=self._run_async_servers, daemon=True)
+        # ── QoS ──────────────────────────────────────────────────────────────
+        sensor_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST, depth=5)
+        reliable_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST, depth=1)
+
+        # ── Subscriptions ─────────────────────────────────────────────────────
+        self.create_subscription(
+            Image,          '/image',              self._cb_image,  sensor_qos)
+        self.create_subscription(
+            Imu,            '/imu',                self._cb_imu,    sensor_qos)
+        self.create_subscription(
+            MagneticField,  '/imu/mag',            self._cb_mag,    sensor_qos)
+        self.create_subscription(
+            Odometry,       '/odom',               self._cb_odom,   sensor_qos)
+        self.create_subscription(
+            PointCloud2,    '/openvio/map_points', self._cb_pts,    sensor_qos)
+        self.create_subscription(
+            DiagnosticArray, '/diagnostics',       self._cb_diag,   sensor_qos)
+
+        # ── Publishers ────────────────────────────────────────────────────────
+        # Motor commands → imu_publisher_node → ASCII serial → Arduino
+        self._pub_ctrl  = self.create_publisher(
+            Int16MultiArray, '/robot_control', reliable_qos)
+        # IMU recalibration → imu_publisher_node → "CAL\n" → Arduino
+        self._pub_recal = self.create_publisher(
+            Bool, '/imu_recal', reliable_qos)
+        # SLAM reset → vio_node
+        self._pub_reset = self.create_publisher(
+            Bool, '/slam_reset', reliable_qos)
+
+        # ── System stats timer ────────────────────────────────────────────────
+        self.create_timer(1.0, self._publish_sys_stats)
+
+        # ── Start asyncio thread ──────────────────────────────────────────────
+        self._async_thread = threading.Thread(
+            target=self._run_async_loop, daemon=True)
         self._async_thread.start()
-        self.create_timer(1.0, self._emit_system_stats)
 
-    def _run_async_servers(self):
-        asyncio.run(self._start_servers())
+        # Wait up to 2s for asyncio loop to be ready
+        for _ in range(40):
+            if self._loop is not None:
+                break
+            time.sleep(0.05)
 
-    async def _start_servers(self):
-        self._loop = asyncio.get_running_loop()
-        self._start_http_server()
-        self._ws_server = await websockets.serve(self._ws_handler, '0.0.0.0', self.ws_port)
-        self.get_logger().info(f'WebSocket server listening on ws://0.0.0.0:{self.ws_port}')
+        self.get_logger().info(
+            f"Web Controller ready\n"
+            f"  UI:  http://0.0.0.0:{self._http_port}\n"
+            f"  WS:  ws://0.0.0.0:{self._ws_port}\n"
+            f"  Topics: /imu /imu/mag /image /odom /openvio/map_points")
+
+    # ── Asyncio thread ────────────────────────────────────────────────────────
+
+    def _run_async_loop(self):
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_until_complete(self._async_main())
+
+    async def _async_main(self):
+        static_dir = self._find_static_dir()
+        handler    = partial(StaticFileHandler, directory=static_dir)
+        http_srv   = HTTPServer(('0.0.0.0', self._http_port), handler)
+        threading.Thread(
+            target=http_srv.serve_forever, daemon=True).start()
+
+        async with websockets.serve(
+            self._ws_handler, '0.0.0.0', self._ws_port):
+            await asyncio.Future()   # run forever
+
+    def _find_static_dir(self) -> str:
+        candidates = [
+            os.path.join(os.path.dirname(__file__), 'static'),
+            os.path.expanduser(
+                '~/slam_ws/src/openvio_slam/web_controller/static'),
+            os.path.expanduser(
+                '~/slam_ws/install/openvio_slam/share/'
+                'openvio_slam/web_controller/static'),
+        ]
+        for c in candidates:
+            if os.path.isdir(c):
+                return c
+        self.get_logger().warn("static/ not found, serving from cwd")
+        return '.'
+
+    # ── WebSocket ─────────────────────────────────────────────────────────────
+
+    async def _ws_handler(self, ws):
+        with self._ws_lock:
+            self._ws_clients.add(ws)
+        self.get_logger().info(f"Browser connected: {ws.remote_address}")
         try:
-            while True:
-                await asyncio.sleep(0.25)
-        except asyncio.CancelledError:
-            pass
-
-    def _start_http_server(self):
-        handler = self._make_http_handler()
-        self._http_server = ThreadingHTTPServer(('0.0.0.0', self.http_port), handler)
-        self.get_logger().info(f'HTTP server listening on http://0.0.0.0:{self.http_port}')
-        self._http_thread = threading.Thread(target=self._http_server.serve_forever, daemon=True)
-        self._http_thread.start()
-
-    def _make_http_handler(self):
-        static_dir = self.static_dir
-
-        class Handler(SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=static_dir, **kwargs)
-
-            def log_message(self, format, *args):
-                return
-
-        return Handler
-
-    async def _ws_handler(self, websocket):
-        self._clients.add(websocket)
-        self.get_logger().info('Browser connected over websocket.')
-        try:
-            async for raw in websocket:
-                try:
-                    msg = json.loads(raw)
-                except json.JSONDecodeError:
-                    continue
-                self._handle_browser_message(msg)
-        except websockets.ConnectionClosed:
+            async for raw in ws:
+                await self._handle_browser_msg(raw)
+        except websockets.exceptions.ConnectionClosed:
             pass
         finally:
-            self._clients.discard(websocket)
+            with self._ws_lock:
+                self._ws_clients.discard(ws)
+            self.get_logger().info(f"Browser disconnected: {ws.remote_address}")
 
-    def _handle_browser_message(self, msg):
-        msg_type = msg.get('type')
-        if msg_type == 'motor':
-            left = int(msg.get('left', 0))
-            right = int(msg.get('right', 0))
-            arr = Int16MultiArray(data=[left, right])
-            self.pub_motor.publish(arr)
-        elif msg_type == 'recal':
-            self.pub_imu_recal.publish(Bool(data=True))
-        elif msg_type == 'reset_slam':
-            self.pub_slam_reset.publish(Bool(data=True))
-        elif msg_type == 'stop':
-            arr = Int16MultiArray(data=[0, 0])
-            self.pub_motor.publish(arr)
-        elif msg_type == 'set_speed':
-            value = float(msg.get('value', 0.0))
-            left = int(255 * value)
-            right = int(255 * value)
-            arr = Int16MultiArray(data=[left, right])
-            self.pub_motor.publish(arr)
-
-    def _image_callback(self, msg: Image):
-        now = self.get_clock().now().nanoseconds / 1e9
-        if (now - self._last_image_time) < (1.0 / max(self.max_cam_fps, 0.1)):
-            return
-        self._last_image_time = now
+    async def _handle_browser_msg(self, raw: str):
         try:
-            cv_img = self._bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            ok, buffer = cv2.imencode('.jpg', cv_img, [cv2.IMWRITE_JPEG_QUALITY, 70])
-            if not ok:
-                return
-            payload = base64.b64encode(buffer.tobytes()).decode('ascii')
-            self._broadcast({'type': 'image', 'data': payload, 'stamp': now})
-        except Exception as exc:
-            self.get_logger().warn(f'Failed to encode image: {exc}')
-
-    def _imu_callback(self, msg: Imu):
-        self._last_imu = {
-            'gx': float(msg.angular_velocity.x),
-            'gy': float(msg.angular_velocity.y),
-            'gz': float(msg.angular_velocity.z),
-            'ax': float(msg.linear_acceleration.x),
-            'ay': float(msg.linear_acceleration.y),
-            'az': float(msg.linear_acceleration.z),
-            'stamp': float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) / 1e9,
-        }
-        self._broadcast({
-            'type': 'imu',
-            **self._last_imu,
-        })
-
-    def _odom_callback(self, msg: Odometry):
-        q = msg.pose.pose.orientation
-        yaw = 2.0 * np.arctan2(q.z, q.w)
-        self._last_odom = {
-            'x': float(msg.pose.pose.position.x),
-            'y': float(msg.pose.pose.position.y),
-            'z': float(msg.pose.pose.position.z),
-            'yaw': float(yaw),
-            'vx': float(msg.twist.twist.linear.x),
-            'vy': float(msg.twist.twist.linear.y),
-            'stamp': float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) / 1e9,
-        }
-        self._broadcast({'type': 'odom', **self._last_odom})
-
-    def _map_callback(self, msg: PointCloud2):
-        n_points = int(getattr(msg, 'width', 0) * getattr(msg, 'height', 1))
-        self._map_points_n = n_points
-        self._broadcast({'type': 'mapstats', 'n_points': n_points, 'stamp': self.get_clock().now().nanoseconds / 1e9})
-
-    def _diag_callback(self, msg: DiagnosticArray):
-        self._diag_payload = []
-        for status in msg.status:
-            values = []
-            for val in status.values:
-                values.append({'key': val.key, 'value': val.value})
-            self._diag_payload.append({'name': status.name, 'level': status.level, 'message': status.message, 'values': values})
-        self._broadcast({'type': 'diag', 'status': self._diag_payload})
-
-    def _emit_system_stats(self):
-        cpu = psutil.cpu_percent(interval=None)
-        mem_mb = psutil.virtual_memory().used // (1024 * 1024)
-        sys_msg = {
-            'type': 'sys',
-            'cpu': float(cpu),
-            'mem_mb': int(mem_mb),
-            'ros_hz_imu': 99.9,
-            'ros_hz_img': 9.8,
-            'stamp': self.get_clock().now().nanoseconds / 1e9,
-        }
-        self._broadcast(sys_msg)
-
-    def _broadcast(self, payload):
-        if not self._clients or self._loop is None:
+            msg = json.loads(raw)
+        except json.JSONDecodeError:
             return
-        data = json.dumps(payload)
-        dead = set()
-        for ws in list(self._clients):
-            try:
-                asyncio.run_coroutine_threadsafe(ws.send(data), self._loop)
-            except Exception:
-                dead.add(ws)
-        self._clients.difference_update(dead)
+
+        t = msg.get('type', '')
+
+        if t == 'motor':
+            L = int(max(-255, min(255, msg.get('left',  0))))
+            R = int(max(-255, min(255, msg.get('right', 0))))
+            m = Int16MultiArray()
+            m.data = [L, R]
+            self._pub_ctrl.publish(m)
+
+        elif t == 'stop':
+            m = Int16MultiArray()
+            m.data = [0, 0]
+            self._pub_ctrl.publish(m)
+
+        elif t == 'recal':
+            self._pub_recal.publish(Bool(data=True))
+
+        elif t == 'reset_slam':
+            self._pub_reset.publish(Bool(data=True))
+
+        elif t == 'start_record':
+            self._start_bag_record()
+
+        elif t == 'stop_record':
+            self._stop_bag_record()
+
+        elif t == 'export_path':
+            await self._send_path_export()
+
+        elif t == 'shutdown':
+            self.get_logger().warn("Shutdown requested from browser")
+            subprocess.Popen(['sudo', 'shutdown', '-h', 'now'])
+
+    async def _send_path_export(self):
+        csv_lines = ['index,x,y']
+        for i, (x, y) in enumerate(self._odom_path):
+            csv_lines.append(f"{i},{x:.4f},{y:.4f}")
+        await self._broadcast(json.dumps({
+            'type': 'path_export',
+            'csv':  '\n'.join(csv_lines),
+        }))
+
+    # ── Broadcast helper ──────────────────────────────────────────────────────
+
+    def _push(self, payload: str):
+        """Thread-safe: queue a broadcast from the ROS thread."""
+        if self._loop and not self._loop.is_closed():
+            self._loop.call_soon_threadsafe(
+                self._loop.create_task,
+                self._broadcast(payload))
+
+    async def _broadcast(self, payload: str):
+        with self._ws_lock:
+            clients = set(self._ws_clients)
+        if not clients:
+            return
+        await asyncio.gather(
+            *[c.send(payload) for c in clients],
+            return_exceptions=True)
+
+    # ── ROS callbacks ─────────────────────────────────────────────────────────
+
+    def _cb_image(self, msg: Image):
+        now = time.time()
+        if now - self._last_cam_time < self._cam_interval:
+            return
+        self._last_cam_time = now
+
+        try:
+            h, w = msg.height, msg.width
+            raw  = np.frombuffer(msg.data, dtype=np.uint8)
+
+            if msg.encoding == 'bgr8':
+                import cv2
+                bgr = raw.reshape(h, w, 3)
+                _, buf = cv2.imencode(
+                    '.jpg', bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                b64 = base64.b64encode(buf.tobytes()).decode()
+            else:
+                b64 = base64.b64encode(bytes(msg.data)).decode()
+
+            self._push(json.dumps({
+                'type': 'image',
+                'data': b64,
+                'stamp': now,
+                'w': w,
+                'h': h,
+            }))
+        except Exception as e:
+            self.get_logger().error(
+                f"Image encode: {e}", throttle_duration_sec=5.0)
+
+    def _cb_imu(self, msg: Imu):
+        self._push(json.dumps({
+            'type': 'imu',
+            'gx':   round(msg.angular_velocity.x,    4),
+            'gy':   round(msg.angular_velocity.y,    4),
+            'gz':   round(msg.angular_velocity.z,    4),
+            'ax':   round(msg.linear_acceleration.x, 4),
+            'ay':   round(msg.linear_acceleration.y, 4),
+            'az':   round(msg.linear_acceleration.z, 4),
+            'stamp': time.time(),
+        }))
+
+    def _cb_mag(self, msg: MagneticField):
+        """
+        Forward magnetometer data to browser.
+        ROS uses Tesla; convert to µT for display (×1e6).
+        Compute magnetic heading from mx, my (tilt-compensated heading
+        requires roll/pitch — browser does this with latest IMU values).
+        """
+        mx = msg.magnetic_field.x * 1e6   # T → µT
+        my = msg.magnetic_field.y * 1e6
+        mz = msg.magnetic_field.z * 1e6
+        # Raw heading (not tilt-compensated — browser refines with roll/pitch)
+        heading_deg = math.degrees(math.atan2(my, mx)) % 360.0
+        self._push(json.dumps({
+            'type':    'mag',
+            'mx':      round(mx, 3),
+            'my':      round(my, 3),
+            'mz':      round(mz, 3),
+            'heading': round(heading_deg, 2),
+            'stamp':   time.time(),
+        }))
+
+    def _cb_odom(self, msg: Odometry):
+        p   = msg.pose.pose.position
+        q   = msg.pose.pose.orientation
+        v   = msg.twist.twist.linear
+        yaw = self._quat_to_yaw(q.x, q.y, q.z, q.w)
+
+        self._odom_path.append((p.x, p.y))
+        if len(self._odom_path) > 10000:
+            self._odom_path = self._odom_path[-10000:]
+
+        self._push(json.dumps({
+            'type': 'odom',
+            'x':    round(p.x, 4),
+            'y':    round(p.y, 4),
+            'z':    round(p.z, 4),
+            'yaw':  round(math.degrees(yaw), 2),
+            'vx':   round(v.x, 4),
+            'vy':   round(v.y, 4),
+        }))
+
+    def _cb_pts(self, msg: PointCloud2):
+        self._push(json.dumps({
+            'type':     'mapstats',
+            'n_points': msg.width * msg.height,
+            'stamp':    time.time(),
+        }))
+
+    def _cb_diag(self, msg: DiagnosticArray):
+        diag_list = [{
+            'name':    s.name,
+            'level':   s.level,
+            'message': s.message,
+            'values':  {kv.key: kv.value for kv in s.values},
+        } for s in msg.status]
+        self._push(json.dumps({'type': 'diag', 'status': diag_list}))
+
+    def _publish_sys_stats(self):
+        cpu = psutil.cpu_percent(interval=None)
+        mem = psutil.virtual_memory()
+        self._push(json.dumps({
+            'type':      'sys',
+            'cpu':       round(cpu, 1),
+            'mem_mb':    mem.used // (1024 * 1024),
+            'mem_pct':   round(mem.percent, 1),
+            'stamp':     time.time(),
+            'recording': (self._bag_proc is not None
+                          and self._bag_proc.poll() is None),
+        }))
+
+    # ── Bag recording ─────────────────────────────────────────────────────────
+
+    def _start_bag_record(self):
+        if self._bag_proc and self._bag_proc.poll() is None:
+            return
+        os.makedirs(self._record_path, exist_ok=True)
+        ts    = time.strftime('%Y%m%d_%H%M%S')
+        fname = os.path.join(self._record_path, f'slam_{ts}')
+        self._bag_proc = subprocess.Popen([
+            'ros2', 'bag', 'record', '-o', fname,
+            '/image', '/imu', '/imu/mag', '/odom',
+            '/openvio/map_points',
+        ])
+        self.get_logger().info(f"Bag recording: {fname}")
+
+    def _stop_bag_record(self):
+        if self._bag_proc and self._bag_proc.poll() is None:
+            self._bag_proc.terminate()
+            self._bag_proc = None
+            self.get_logger().info("Bag recording stopped.")
+
+    # ── Utility ───────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _quat_to_yaw(qx, qy, qz, qw) -> float:
+        return math.atan2(2.0 * (qw * qz + qx * qy),
+                          1.0 - 2.0 * (qy * qy + qz * qz))
+
+
+class StaticFileHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, directory='.', **kwargs):
+        super().__init__(*args, directory=directory, **kwargs)
+
+    def end_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        super().end_headers()
+
+    def log_message(self, fmt, *args):
+        pass   # suppress HTTP logs
 
 
 def main(args=None):
@@ -228,9 +408,11 @@ def main(args=None):
     node = WebControllerNode()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':
