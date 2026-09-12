@@ -141,6 +141,9 @@ void setup() {
     pinMode(PIN_RIGHT_DIR, OUTPUT);
     set_motor(0, 0);
 
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
+
     Wire.begin();
     Wire.setClock(400000);
 
@@ -153,10 +156,8 @@ void setup() {
         }
     }
 
-    // Load or compute gyro bias
-    if (!load_bias_eeprom()) {
-        calibrate_gyro();
-    }
+    // ── Always calibrate gyro on startup (user requirement) ─────────────────
+    calibrate_gyro();
 
     last_imu_ms   = millis();
     last_motor_ms = millis();
@@ -232,16 +233,17 @@ void process_command(const char* cmd) {
 // MPU-9250 INIT
 // =============================================================================
 bool init_mpu9250() {
-    // Check WHO_AM_I
-    uint8_t who = mpu_read(REG_PWR_MGMT_1 - 1 + 0x75 - 0x6B);
-    // WHO_AM_I is at 0x75; use direct read
+    // Check WHO_AM_I (register 0x75)
     Wire.beginTransmission(MPU_ADDR);
     Wire.write(0x75);
     Wire.endTransmission(false);
     Wire.requestFrom((uint8_t)MPU_ADDR, (uint8_t)1);
-    who = Wire.available() ? Wire.read() : 0;
+    if (!Wire.available()) {
+        return false;   // MPU not responding
+    }
+    uint8_t who = Wire.read();
 
-    if (who != 0x71 && who != 0x70 && who != 0x68 && who != 0x73) {
+    if (who != 0x71 && who != 0x70 && who != 0x68 && who != 0x73 && who != 0x74) {
         // Unknown WHO_AM_I — warn but continue
         // (some MPU-6500 clones return different values)
     }
@@ -261,26 +263,30 @@ bool init_mpu9250() {
     // Sample rate: 1000/(1+4) = 200 Hz internal
     mpu_write(REG_SMPLRT_DIV, 0x04);
     // Enable I2C bypass so we can talk to AK8963 directly
-    mpu_write(0x37, 0x02);   // INT_PIN_CFG: BYPASS_EN = 1
+    mpu_write(REG_INT_PIN, 0x02);   // INT_PIN_CFG: BYPASS_EN = 1
 
     delay(50);
 
-    // Init AK8963 (magnetometer)
-    return init_ak8963();
+    // Init AK8963 (magnetometer) — always returns true, even if mag missing
+    init_ak8963();
+
+    return true;   // MPU itself is working
 }
 
-bool init_ak8963() {
+void init_ak8963() {
     // Check WHO_AM_I
     Wire.beginTransmission(AK8963_ADDR);
     Wire.write(AK_WIA);
     Wire.endTransmission(false);
     Wire.requestFrom((uint8_t)AK8963_ADDR, (uint8_t)1);
-    if (!Wire.available()) return false;
+    if (!Wire.available()) {
+        // Magnetometer not present – continue without it
+        return;
+    }
     uint8_t wia = Wire.read();
     if (wia != 0x48) {
-        // AK8963 not found (some MPU-6500 boards don't have magnetometer)
-        // Continue without mag — values will be 0.0
-        return true;
+        // Not an AK8963, or magnetometer not connected – continue without it
+        return;
     }
 
     // Reset
@@ -309,7 +315,6 @@ bool init_ak8963() {
     delay(10);
     ak_write(AK_CNTL, 0x16);   // 16-bit, continuous mode 2 (100 Hz)
     delay(10);
-    return true;
 }
 
 // =============================================================================
@@ -454,6 +459,8 @@ void calibrate_gyro() {
     calibrating = true;
     set_motor(0, 0);
 
+    digitalWrite(LED_BUILTIN, HIGH);   // LED on during calibration
+
     const int N = 1000;
     long gx_sum = 0, gy_sum = 0, gz_sum = 0;
 
@@ -475,7 +482,9 @@ void calibrate_gyro() {
     bias_gy = (float)gy_sum / N;
     bias_gz = (float)gz_sum / N;
 
-    save_bias_eeprom();
+    save_bias_eeprom();   // optional, kept for record
+
+    digitalWrite(LED_BUILTIN, LOW);    // LED off – calibration done
     calibrating = false;
 }
 

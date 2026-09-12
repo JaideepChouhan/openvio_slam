@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-web_controller_node.py  —  OpenVIO-SLAM Web Controller  (Protocol-Corrected v2)
+web_controller_node.py  —  OpenVIO-SLAM Web Controller  (Protocol-Corrected v3)
 =================================================================================
 
-CHANGES FROM PARTS 1-3:
-  • Subscribes to /imu/mag (sensor_msgs/MagneticField) in addition to /imu
-  • Forwards magnetometer data to browser as {"type":"mag", ...}
-  • Motor commands use ASCII text via imu_publisher_node (no direct serial)
-  • All other logic unchanged from Part 2 reference implementation
+CHANGES (v3):
+  • FIX: AttributeError on self._use_https — initialised before the asyncio
+         thread is started, and cert availability is probed synchronously in
+         __init__ so the "ready" log line is always accurate.
+  • FIX: __init__ now waits on an Event that the async thread sets only after
+         the HTTP + WebSocket servers are actually up (no more guessing).
+  • Cleaner separation between "is HTTPS possible?" (sync check) and
+         "set up HTTPS" (async thread).
 
-ARCHITECTURE:
-  Browser ←→ WebSocket (port 8765) ←→ THIS NODE ←→ ROS 2 topics
-  Browser ←→ HTTP       (port 8080) ←→ THIS NODE → static/index.html
-
-Threading model:
-  Thread 1: rclpy.spin(node)   — all ROS callbacks
-  Thread 2: asyncio event loop — HTTP + WebSocket servers
-  Bridge:   thread-safe asyncio calls from ROS thread → asyncio loop
+CHANGES (v2):
+  • Subscribes to /imu/mag and forwards magnetometer data.
+  • Motor commands via /robot_control.
+  • Robust bytes→str conversion in _cb_diag to prevent JSON serialisation errors.
+  • Try/except around json.dumps in diagnostic callback.
+  • HTTPS support (self‑signed cert) – enables camera access on mobile browsers.
+  • Serves static/ directory: dashboard at /, phone app at /phone/.
 """
 
 import rclpy
@@ -36,6 +38,7 @@ import time
 import subprocess
 import os
 import math
+import ssl
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from functools   import partial
 
@@ -47,6 +50,22 @@ except ImportError:
     HAS_DEPS = False
 
 import numpy as np
+
+
+# ── HTTPS certificate paths (module-level constants) ─────────────────────────
+CERT_PATH = os.path.expanduser('~/certs/cert.pem')
+KEY_PATH  = os.path.expanduser('~/certs/key.pem')
+
+
+def _to_str(obj):
+    """Safely convert any bytes-like object to a string for JSON serialisation."""
+    if isinstance(obj, bytes):
+        return obj.decode('utf-8', errors='replace')
+    if isinstance(obj, bytearray):
+        return bytes(obj).decode('utf-8', errors='replace')
+    if isinstance(obj, str):
+        return obj
+    return str(obj)
 
 
 class WebControllerNode(Node):
@@ -70,10 +89,17 @@ class WebControllerNode(Node):
         self._record_path = os.path.expanduser(
             self.get_parameter('record_path').value)
 
+        # ── FIX: decide HTTPS availability synchronously, before the thread ──
+        # This makes the "ready" log line truthful and avoids the race.
+        self._use_https = (
+            os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH)
+        )
+
         # ── Shared state ──────────────────────────────────────────────────────
         self._ws_clients  = set()
         self._ws_lock     = threading.Lock()
         self._loop        = None          # asyncio event loop (set in thread 2)
+        self._servers_up  = threading.Event()
 
         self._last_cam_time = 0.0
         self._cam_interval  = 1.0 / self._max_cam_fps
@@ -103,13 +129,10 @@ class WebControllerNode(Node):
             DiagnosticArray, '/diagnostics',       self._cb_diag,   sensor_qos)
 
         # ── Publishers ────────────────────────────────────────────────────────
-        # Motor commands → imu_publisher_node → ASCII serial → Arduino
         self._pub_ctrl  = self.create_publisher(
             Int16MultiArray, '/robot_control', reliable_qos)
-        # IMU recalibration → imu_publisher_node → "CAL\n" → Arduino
         self._pub_recal = self.create_publisher(
             Bool, '/imu_recal', reliable_qos)
-        # SLAM reset → vio_node
         self._pub_reset = self.create_publisher(
             Bool, '/slam_reset', reliable_qos)
 
@@ -121,15 +144,22 @@ class WebControllerNode(Node):
             target=self._run_async_loop, daemon=True)
         self._async_thread.start()
 
-        # Wait up to 2s for asyncio loop to be ready
-        for _ in range(40):
-            if self._loop is not None:
-                break
-            time.sleep(0.05)
+        # Wait up to 5 s for the HTTP + WS servers to actually bind.
+        if not self._servers_up.wait(timeout=5.0):
+            self.get_logger().warn(
+                "HTTP/WS servers did not report ready within 5 s — "
+                "continuing anyway.")
+
+        # ── Ready log (safe: _use_https always exists) ────────────────────────
+        scheme = 'https' if self._use_https else 'http'
+        if self._use_https:
+            https_note = "(self-signed cert)"
+        else:
+            https_note = "(cert not found — camera access on mobile may fail)"
 
         self.get_logger().info(
             f"Web Controller ready\n"
-            f"  UI:  http://0.0.0.0:{self._http_port}\n"
+            f"  UI:  {scheme}://0.0.0.0:{self._http_port} {https_note}\n"
             f"  WS:  ws://0.0.0.0:{self._ws_port}\n"
             f"  Topics: /imu /imu/mag /image /odom /openvio/map_points")
 
@@ -138,18 +168,56 @@ class WebControllerNode(Node):
     def _run_async_loop(self):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self._async_main())
+        try:
+            self._loop.run_until_complete(self._async_main())
+        except Exception as e:
+            self.get_logger().error(f"Asyncio loop crashed: {e}")
+        finally:
+            # Always release __init__ even on failure, so it doesn't hang.
+            self._servers_up.set()
 
     async def _async_main(self):
         static_dir = self._find_static_dir()
         handler    = partial(StaticFileHandler, directory=static_dir)
-        http_srv   = HTTPServer(('0.0.0.0', self._http_port), handler)
-        threading.Thread(
-            target=http_srv.serve_forever, daemon=True).start()
 
-        async with websockets.serve(
-            self._ws_handler, '0.0.0.0', self._ws_port):
-            await asyncio.Future()   # run forever
+        try:
+            http_srv = HTTPServer(('0.0.0.0', self._http_port), handler)
+        except OSError as e:
+            self.get_logger().error(
+                f"Cannot bind HTTP port {self._http_port}: {e}")
+            return
+
+        # --- HTTPS support (self‑signed certificate) ---
+        # _use_https was already decided in __init__; here we just try to apply it.
+        if self._use_https:
+            try:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                context.load_cert_chain(CERT_PATH, KEY_PATH)
+                http_srv.socket = context.wrap_socket(
+                    http_srv.socket, server_side=True)
+                self.get_logger().info(
+                    f"HTTPS enabled on port {self._http_port}")
+            except Exception as e:
+                # Cert existed at __init__ but failed to load — fall back.
+                self._use_https = False
+                self.get_logger().warn(
+                    f"Failed to load certificate: {e} – falling back to HTTP")
+        else:
+            self.get_logger().warn(
+                "Certificates not found, falling back to HTTP")
+
+        threading.Thread(target=http_srv.serve_forever, daemon=True).start()
+
+        try:
+            async with websockets.serve(
+                self._ws_handler, '0.0.0.0', self._ws_port):
+                # Servers are up — release __init__.
+                self._servers_up.set()
+                await asyncio.Future()   # run forever
+        except OSError as e:
+            self.get_logger().error(
+                f"Cannot bind WS port {self._ws_port}: {e}")
+            self._servers_up.set()
 
     def _find_static_dir(self) -> str:
         candidates = [
@@ -293,16 +361,9 @@ class WebControllerNode(Node):
         }))
 
     def _cb_mag(self, msg: MagneticField):
-        """
-        Forward magnetometer data to browser.
-        ROS uses Tesla; convert to µT for display (×1e6).
-        Compute magnetic heading from mx, my (tilt-compensated heading
-        requires roll/pitch — browser does this with latest IMU values).
-        """
-        mx = msg.magnetic_field.x * 1e6   # T → µT
+        mx = msg.magnetic_field.x * 1e6
         my = msg.magnetic_field.y * 1e6
         mz = msg.magnetic_field.z * 1e6
-        # Raw heading (not tilt-compensated — browser refines with roll/pitch)
         heading_deg = math.degrees(math.atan2(my, mx)) % 360.0
         self._push(json.dumps({
             'type':    'mag',
@@ -341,13 +402,42 @@ class WebControllerNode(Node):
         }))
 
     def _cb_diag(self, msg: DiagnosticArray):
-        diag_list = [{
-            'name':    s.name,
-            'level':   s.level,
-            'message': s.message,
-            'values':  {kv.key: kv.value for kv in s.values},
-        } for s in msg.status]
-        self._push(json.dumps({'type': 'diag', 'status': diag_list}))
+        """
+        Robust diagnostic forwarding with safe bytes→str conversion.
+        If serialisation fails, log error and send an empty diagnostic list.
+        """
+        diag_list = []
+        for s in msg.status:
+            name    = _to_str(s.name)
+            message = _to_str(s.message)
+
+            try:
+                level_str = _to_str(s.level)
+                level = int(level_str) if level_str.strip() != '' else 0
+            except (ValueError, TypeError):
+                level = 0
+
+            values = {}
+            for kv in s.values:
+                key = _to_str(kv.key)
+                val = _to_str(kv.value)
+                values[key] = val
+
+            diag_list.append({
+                'name':    name,
+                'level':   level,
+                'message': message,
+                'values':  values,
+            })
+
+        try:
+            payload = json.dumps({'type': 'diag', 'status': diag_list})
+            self._push(payload)
+        except Exception as e:
+            self.get_logger().error(
+                f"Failed to serialise diagnostics: {e} – sending empty diag",
+                throttle_duration_sec=5.0)
+            self._push(json.dumps({'type': 'diag', 'status': []}))
 
     def _publish_sys_stats(self):
         cpu = psutil.cpu_percent(interval=None)

@@ -176,7 +176,7 @@ class IMUPublisherNode(Node):
         try:
             with self._ser_lock:
                 self._ser = serial.Serial(
-                    self._port, self._baud, timeout=0)
+                    self._port, self._baud, timeout=0.01)
             self.get_logger().info(f"✅ Serial opened: {self._port}")
         except serial.SerialException as e:
             self.get_logger().error(

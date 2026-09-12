@@ -1,0 +1,1 @@
+cv_bridge:diagnostic_msgs:geometry_msgs:nav_msgs:python3-numpy:python3-opencv:python3-psutil:python3-scipy:python3-serial:python3-websockets:rclpy:sensor_msgs:std_srvs:tf2_ros:visualization_msgs

@@ -1,0 +1,1 @@
+rclpy;sensor_msgs;nav_msgs;geometry_msgs;visualization_msgs;tf2_ros;cv_bridge;diagnostic_msgs;std_srvs;python3-numpy;python3-scipy;python3-opencv;python3-serial;python3-psutil;python3-websockets;ament_copyright;ament_flake8;ament_pep257;python3-pytest

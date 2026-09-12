@@ -1,0 +1,4 @@
+source;share/openvio_slam/local_setup.bash
+source;share/openvio_slam/local_setup.dsv
+source;share/openvio_slam/local_setup.sh
+source;share/openvio_slam/local_setup.zsh

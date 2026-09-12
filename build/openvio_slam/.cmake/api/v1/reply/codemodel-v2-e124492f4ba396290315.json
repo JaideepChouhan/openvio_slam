@@ -1,0 +1,97 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-cc5ba95def59b05b007e.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.15"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "openvio_slam",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_openvio_slam_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_openvio_slam_egg-bceecb4382a3fadd9922.json",
+					"name" : "ament_cmake_python_build_openvio_slam_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_openvio_slam::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_openvio_slam-d85fcc29c43f917daa94.json",
+					"name" : "ament_cmake_python_symlink_openvio_slam",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_openvio_slam_setup::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_openvio_slam_setup-b82c965c97e8ca1dff25.json",
+					"name" : "ament_cmake_python_symlink_openvio_slam_setup",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "openvio_slam_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-openvio_slam_uninstall-b7f8e0786f3fcd4b9e32.json",
+					"name" : "openvio_slam_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-1c328c137ae39fb32189.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam",
+		"source" : "/home/jaideepchouhan/slam_ws/src/openvio_slam"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}
