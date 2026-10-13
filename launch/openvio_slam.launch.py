@@ -11,6 +11,12 @@ Data flow:
 
     openvio_slam_node consumes /image + /camera_info + /imu → /odom + map_points
     web_controller_node consumes all of the above → HTTP UI on :8080, WS :8765
+
+Orientation policy:
+    The phone app now rotates the camera frame in canvas, so
+    /camera/image_raw/compressed is already upright landscape (640×480).
+    The bridge node is told `rotate_portrait:=False` and just forwards the
+    decoded image with no cv2.rotate — the Pi spends zero CPU on rotation.
 """
 
 from launch import LaunchDescription
@@ -84,13 +90,13 @@ def generate_launch_description():
                                     value_type=int),
             'max_message_size': 20_000_000,
             'fragment_timeout': 600,
-            # FIX: rosbridge declares this as double, not int.
             'delay_between_messages': 0.0,
         }],
     )
 
     # ── 2. Camera bridge: CompressedImage (phone) → /image + /camera_info ─
-    # FIX: slam_bridge_node lives in the slam_project package, not openvio_slam.
+    # `rotate_portrait` is disabled because the phone now publishes already-
+    # upright landscape frames. The bridge just decodes + republishes.
     bridge_node = Node(
         package='slam_project',
         executable='slam_bridge_node',
@@ -100,7 +106,8 @@ def generate_launch_description():
         respawn=True,
         respawn_delay=2.0,
         parameters=[{
-            'publish_imu':          False,             # Arduino owns /imu
+            'publish_imu':          False,
+            'rotate_portrait':      False,               # phone rotates now
             'frame_id':             LaunchConfiguration('camera_frame'),
 
             'image_in_topic':       '/camera/image_raw/compressed',

@@ -21,7 +21,15 @@ def test_launch_file_includes_new_nodes():
 def test_static_tf_and_runtime_notes_are_present():
     launch_text = (ROOT / 'launch' / 'openvio_slam.launch.py').read_text()
     assert 'static_transform_publisher' in launch_text
-    assert '--roll-pitch-yaw' in launch_text
+    # Accept either the combined flag form ('--roll-pitch-yaw R P Y')
+    # or the per-axis form ('--roll R --pitch P --yaw Y');
+    # both are valid for static_transform_publisher in ROS 2 Jazzy.
+    assert (
+        '--roll-pitch-yaw' in launch_text
+        or ('--roll' in launch_text
+            and '--pitch' in launch_text
+            and '--yaw' in launch_text)
+    )
 
     readme_text = (ROOT / 'README.md').read_text()
     for phrase in [

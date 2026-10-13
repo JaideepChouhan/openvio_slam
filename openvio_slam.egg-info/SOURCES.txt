@@ -1,10 +1,13 @@
 LICENSE
+README.md
 package.xml
 setup.cfg
 setup.py
+config/extrinsic.yaml
 config/slam.yaml
 launch/openvio_slam.launch.py
 openvio_slam/__init__.py
+openvio_slam/camera_info_publisher.py
 openvio_slam.egg-info/PKG-INFO
 openvio_slam.egg-info/SOURCES.txt
 openvio_slam.egg-info/dependency_links.txt
@@ -27,6 +30,7 @@ openvio_slam/frontend/klt_tracker.py
 openvio_slam/frontend/orb_extractor.py
 openvio_slam/frontend/undistortion.py
 openvio_slam/imu/__init__.py
+openvio_slam/imu/imu_publisher_node.py
 openvio_slam/imu/initializer.py
 openvio_slam/imu/noise_model.py
 openvio_slam/imu/preintegrator.py
@@ -54,5 +58,9 @@ resource/openvio_slam
 tests/test_loop_closure.py
 tests/test_math.py
 tests/test_msckf_propagation.py
+tests/test_multi_agent_architecture.py
 tests/test_preintegrator.py
+tests/test_protocol.py
 tests/test_triangulation.py
+web_controller/__init__.py
+web_controller/web_controller_node.py

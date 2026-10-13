@@ -315,17 +315,15 @@
 <body>
 <div id="app">
 
-  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
   <div id="topbar">
     <div class="pulse-dot" id="dot-live"></div>
     <div class="sys-ident">
       <div class="sys-name">OpenVIO Bridge</div>
-      <div class="sys-sub">CAMERA ONLY · v5</div>
+      <div class="sys-sub">CAMERA ONLY · v7 (robust-rotate)</div>
     </div>
     <span id="clock">--:--:--</span>
   </div>
 
-  <!-- ── Status rail ─────────────────────────────────────────────────────── -->
   <div id="status-rail">
     <div class="rail-cell">
       <div class="rail-label">WebSocket</div>
@@ -339,7 +337,6 @@
     </div>
   </div>
 
-  <!-- ── Camera preview ──────────────────────────────────────────────────── -->
   <div id="preview-wrap">
     <video id="video" autoplay muted playsinline></video>
     <canvas id="canvas"></canvas>
@@ -351,14 +348,12 @@
       <div class="cam-tag" id="cam-fps-tag">0 fps</div>
       <div class="cam-tag" id="cam-size-tag">—</div>
     </div>
-    <!-- Portrait mode warning -->
     <div id="orientation-warn">
       <div class="ow-icon">⟳</div>
       <div class="ow-text">ROTATE DEVICE TO LANDSCAPE<br>Portrait orientation increases latency.</div>
     </div>
   </div>
 
-  <!-- ── Controls ────────────────────────────────────────────────────────── -->
   <div id="controls">
     <div class="ctrl-row">
       <div class="ctrl-label">Host IP</div>
@@ -369,8 +364,8 @@
       <input class="ctrl-input" type="number" id="port" value="9090"/>
       <div class="ctrl-label" style="width:auto;padding-left:8px">FPS</div>
       <select class="ctrl-input" id="fps-sel" style="max-width:90px">
-        <option value="10" selected>10</option>
-        <option value="15">15</option>
+        <option value="10">10</option>
+        <option value="15" selected>15</option>
         <option value="20">20</option>
       </select>
     </div>
@@ -380,7 +375,6 @@
     </div>
   </div>
 
-  <!-- ── Log ─────────────────────────────────────────────────────────────── -->
   <div id="log-wrap">
     <div class="log-head">
       <span>System Log</span>
@@ -389,44 +383,49 @@
     <div id="log"></div>
   </div>
 
-</div><!-- #app -->
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
 <script>
 'use strict';
 
 // ── Config ──────────────────────────────────────────────────────────────────
-// These must match what the launch file expects.
-//   TOPIC_COMPRESSED  → consumed by image_transport/republish in the launch,
-//                       decompressed onto /image for SLAM + web_controller.
-//   FRAME_ID          → must equal the child frame of the TF
-//                       base_link → camera_link in the launch file.
 const TOPIC_COMPRESSED = '/camera/image_raw/compressed';
 const MSG_TYPE         = 'sensor_msgs/CompressedImage';
 const FRAME_ID         = 'camera_link';
 
 const JPEG_QUALITY     = 0.82;
 const MAX_LOG_LINES    = 120;
-const STALL_MS         = 2000;   // no frame for this long → "STALL"
+const STALL_MS         = 2000;
+
+// ── Target output dims ──────────────────────────────────────────────────────
+// The pipeline (camera_info, SLAM, calibration) expects landscape 640×480.
+// We force the canvas to this size no matter what the phone's camera gives
+// us, scaling + rotating as needed.
+const TARGET_W = 640;
+const TARGET_H = 480;
+
+// If source is portrait (h > w), rotate by this many degrees to make it
+// landscape. -90 = counter-clockwise, +90 = clockwise. Flip the sign if
+// the resulting image is upside-down.
+const ROTATE_DEG = +90;
 
 // ── State ───────────────────────────────────────────────────────────────────
 let ros = null, imgTopic = null, camStream = null;
 let frameTimer = null, fpsTimer = null, reconnectTimer = null;
 let isLandscape = true;
 let camFpsAccum = 0, camFpsDisplay = 0;
-let lastPublishMs = 0;           // for stall detection
+let lastPublishMs = 0;
 
 const $ = id => document.getElementById(id);
 const video  = $('video');
 const canvas = $('canvas');
 const ctx2d  = canvas.getContext('2d', { willReadFrequently: false });
 
-// ── Clock ───────────────────────────────────────────────────────────────────
 setInterval(() => {
   $('clock').textContent = new Date().toLocaleTimeString();
 }, 500);
 
-// ── Logging ─────────────────────────────────────────────────────────────────
 function log(msg, level = 'info') {
   const el = document.createElement('div');
   const t  = new Date().toLocaleTimeString('en-GB', { hour12: false });
@@ -439,7 +438,6 @@ function log(msg, level = 'info') {
 }
 $('btn-clear-log').addEventListener('click', () => { $('log').innerHTML = ''; });
 
-// ── Status helpers ──────────────────────────────────────────────────────────
 function setWsStatus(text, cls) {
   const el = $('ws-status');
   el.textContent = text;
@@ -451,7 +449,7 @@ function setCamStatus(text, cls) {
   el.className = `rail-val ${cls}`;
 }
 
-// ── Orientation ─────────────────────────────────────────────────────────────
+// ── Orientation (of the browser tab, not the camera) ────────────────────────
 function checkOrientation() {
   isLandscape = window.innerWidth >= window.innerHeight;
   const warn  = $('orientation-warn');
@@ -474,7 +472,6 @@ async function tryLockOrientation() {
 
 // ── Camera ──────────────────────────────────────────────────────────────────
 async function startCamera() {
-  // Fallback for older browsers / non-HTTPS
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
     if (navigator.getUserMedia) {
       return new Promise((resolve, reject) => {
@@ -485,8 +482,6 @@ async function startCamera() {
             video.srcObject = stream;
             video.onloadedmetadata = () => {
               video.play().then(() => {
-                canvas.width  = video.videoWidth;
-                canvas.height = video.videoHeight;
                 const dims = `${video.videoWidth}×${video.videoHeight}`;
                 setCamStatus('LIVE', 'ok');
                 $('cam-res').textContent     = dims;
@@ -511,7 +506,6 @@ async function startCamera() {
     }
   }
 
-  // Modern API
   try {
     camStream = await navigator.mediaDevices.getUserMedia({
       video: {
@@ -532,8 +526,6 @@ async function startCamera() {
     await new Promise(r => { video.onloadedmetadata = r; });
     await video.play();
 
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
     const dims = `${video.videoWidth}×${video.videoHeight}`;
     setCamStatus('LIVE', 'ok');
     $('cam-res').textContent      = dims;
@@ -548,19 +540,55 @@ async function startCamera() {
 }
 
 // ── Frame capture ───────────────────────────────────────────────────────────
+// We force the canvas to TARGET_W × TARGET_H (landscape 640×480). If the
+// phone's camera source is portrait, we rotate it in-canvas. If it's already
+// landscape, we just scale. The Pi receives an already-correct JPEG and does
+// zero rotation work.
 function startCameraLoop(fps) {
   const interval = Math.round(1000 / fps);
+
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+
+  canvas.width  = TARGET_W;
+  canvas.height = TARGET_H;
+
+  const needRotate = vh > vw;                     // portrait source
+  const rotDeg     = needRotate ? ROTATE_DEG : 0;
+
+  log(`Camera: ${vw}×${vh}, Canvas: ${canvas.width}×${canvas.height}, rotate ${rotDeg}°`, 'info');
 
   frameTimer = setInterval(() => {
     if (!imgTopic || !isLandscape) return;
 
-    // Backpressure: skip this frame if the WebSocket send buffer is backed up.
-    // Without this, on slow Wi-Fi the JS heap grows and the tab eventually
-    // gets killed by iOS/Android.
     const ws = ros && ros.socket;
     if (ws && ws.bufferedAmount > 64 * 1024) return;
 
-    ctx2d.drawImage(video, 0, 0);
+    // ── Fill canvas with the (possibly rotated, possibly scaled) frame ──
+    if (needRotate) {
+      // Portrait source rotated 90° to fill landscape target.
+      // Scale so the rotated image just fits inside TARGET_W × TARGET_H.
+      const scale = Math.min(TARGET_W / vh, TARGET_H / vw);
+      const drawW = vh * scale;   // after rotation this is horizontal extent
+      const drawH = vw * scale;   // after rotation this is vertical extent
+      ctx2d.save();
+      ctx2d.translate(TARGET_W / 2, TARGET_H / 2);
+      ctx2d.rotate(rotDeg * Math.PI / 180);
+      ctx2d.drawImage(video, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx2d.restore();
+    } else {
+      // Landscape source — scale to fit target.
+      const scale = Math.min(TARGET_W / vw, TARGET_H / vh);
+      const drawW = vw * scale;
+      const drawH = vh * scale;
+      ctx2d.drawImage(
+        video,
+        (TARGET_W - drawW) / 2,
+        (TARGET_H - drawH) / 2,
+        drawW, drawH
+      );
+    }
+    // ────────────────────────────────────────────────────────────────────
 
     const now  = Date.now();
     const sec  = Math.floor(now / 1000);
@@ -570,7 +598,7 @@ function startCameraLoop(fps) {
     imgTopic.publish({
       header: {
         stamp:    { sec, nanosec: nsec },
-        frame_id: FRAME_ID,           // 'camera_link' — matches launch TF
+        frame_id: FRAME_ID,
       },
       format: 'jpeg',
       data,
@@ -580,13 +608,12 @@ function startCameraLoop(fps) {
     lastPublishMs = now;
   }, interval);
 
-  // Once-per-second FPS readout + stall detection
   fpsTimer = setInterval(() => {
     camFpsDisplay = camFpsAccum;
     camFpsAccum   = 0;
     $('cam-fps-tag').textContent = `${camFpsDisplay} fps`;
 
-    if (!imgTopic) return;   // not connected — leave status alone
+    if (!imgTopic) return;
 
     const sinceLast = Date.now() - lastPublishMs;
     if (camFpsDisplay > 0) {
@@ -609,8 +636,6 @@ function connectROS(ip, port, fps) {
     $('dot-live').classList.add('active');
     log(`WebSocket connected → ${ip}:${port}`, 'ok');
 
-    // No queue_size: this is a ROS 1 field and is ignored by rosbridge in
-    // ROS 2. Left out intentionally.
     imgTopic = new ROSLIB.Topic({
       ros,
       name:        TOPIC_COMPRESSED,
@@ -644,8 +669,8 @@ function connectROS(ip, port, fps) {
 
 let _reconnectAttempts = 0;
 function scheduleReconnect(ip, port, fps) {
-  if (!camStream) return;         // user stopped; don't auto-reconnect
-  if (reconnectTimer) return;     // already queued
+  if (!camStream) return;
+  if (reconnectTimer) return;
   _reconnectAttempts++;
   const delay = Math.min(2000 * _reconnectAttempts, 15000);
   log(`Reconnecting in ${delay / 1000}s (attempt ${_reconnectAttempts})…`, 'warn');
@@ -655,7 +680,6 @@ function scheduleReconnect(ip, port, fps) {
   }, delay);
 }
 
-// ── Stop ────────────────────────────────────────────────────────────────────
 function stopAll() {
   if (frameTimer)     { clearInterval(frameTimer);    frameTimer = null; }
   if (fpsTimer)       { clearInterval(fpsTimer);      fpsTimer   = null; }
@@ -674,11 +698,10 @@ function stopAll() {
   log('Session stopped.');
 }
 
-// ── Buttons ─────────────────────────────────────────────────────────────────
 $('btn-connect').addEventListener('click', async () => {
   const ip   = $('ip').value.trim();
   const port = $('port').value.trim();
-  const fps  = parseInt($('fps-sel').value) || 10;
+  const fps  = parseInt($('fps-sel').value) || 15;
 
   if (!ip) { log('Enter host IP address', 'err'); return; }
 
@@ -694,6 +717,7 @@ $('btn-connect').addEventListener('click', async () => {
     return;
   }
 
+  log(`Publishing at ${fps} Hz`, 'info');
   connectROS(ip, port, fps);
 });
 
@@ -704,7 +728,6 @@ $('btn-stop').addEventListener('click', () => {
   log('Session stopped by user.');
 });
 
-// ── Auto-fill IP from page host ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const host = window.location.hostname;
   if (host && host !== 'localhost' && host !== '127.0.0.1') {
@@ -713,11 +736,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ── Startup banner ──────────────────────────────────────────────────────────
-log('OpenVIO Camera Bridge v5 loaded.', 'ok');
+log('OpenVIO Camera Bridge v7 loaded (robust-rotate).', 'ok');
 log(`Will publish → ${TOPIC_COMPRESSED}`, 'info');
 log(`Frames will be stamped frame_id='${FRAME_ID}'`, 'info');
-log('Phone streams video only — IMU comes from the robot.', 'info');
+log(`Target canvas: ${TARGET_W}×${TARGET_H}, rotation (if portrait): ${ROTATE_DEG}°`, 'info');
 log('If camera fails, you need HTTPS or enable insecure origins in Chrome.', 'warn');
 log('Note: phone and laptop clocks should be within ~50 ms for good SLAM.', 'info');
 </script>

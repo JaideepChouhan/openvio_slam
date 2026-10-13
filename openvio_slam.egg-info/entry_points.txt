@@ -1,2 +1,4 @@
 [console_scripts]
+imu_publisher_node = openvio_slam.imu.imu_publisher_node:main
 openvio_slam_node = openvio_slam.ros.vio_node:main
+web_controller_node = web_controller.web_controller_node:main
