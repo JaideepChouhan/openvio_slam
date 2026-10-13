@@ -1,6 +1,7 @@
 setup.cfg
 setup.py
 openvio_slam/__init__.py
+openvio_slam/camera_info_publisher.py
 openvio_slam.egg-info/PKG-INFO
 openvio_slam.egg-info/SOURCES.txt
 openvio_slam.egg-info/dependency_links.txt

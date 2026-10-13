@@ -1,0 +1,121 @@
+[0.015s] Invoking command in '/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/jaideepchouhan/slam_ws/src/openvio_slam -DCMAKE_INSTALL_PREFIX=/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam
+[0.056s] -- Found ament_cmake: 2.5.6 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[0.287s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.313s] -- Found rclpy: 7.1.11 (/opt/ros/jazzy/share/rclpy/cmake)
+[0.314s] -- Found sensor_msgs: 5.3.8 (/opt/ros/jazzy/share/sensor_msgs/cmake)
+[0.365s] -- Found rosidl_generator_c: 4.6.9 (/opt/ros/jazzy/share/rosidl_generator_c/cmake)
+[0.381s] -- Found rosidl_generator_cpp: 4.6.9 (/opt/ros/jazzy/share/rosidl_generator_cpp/cmake)
+[0.401s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.423s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.543s] -- Found nav_msgs: 5.3.8 (/opt/ros/jazzy/share/nav_msgs/cmake)
+[0.580s] -- Found visualization_msgs: 5.3.8 (/opt/ros/jazzy/share/visualization_msgs/cmake)
+[0.619s] -- Found tf2_ros: 0.36.21 (/opt/ros/jazzy/share/tf2_ros/cmake)
+[0.731s] -- Found rmw_implementation_cmake: 7.3.3 (/opt/ros/jazzy/share/rmw_implementation_cmake/cmake)
+[0.736s] -- Found rmw_fastrtps_cpp: 8.4.4 (/opt/ros/jazzy/share/rmw_fastrtps_cpp/cmake)
+[0.831s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[1.060s] -- Found cv_bridge: 4.1.0 (/opt/ros/jazzy/share/cv_bridge/cmake)
+[1.076s] -- Found diagnostic_msgs: 5.3.8 (/opt/ros/jazzy/share/diagnostic_msgs/cmake)
+[1.302s] -- Configuring done (1.3s)
+[1.319s] -- Generating done (0.0s)
+[1.324s] -- Build files have been written to: /home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam
+[1.334s] Invoked command in '/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/jaideepchouhan/slam_ws/src/openvio_slam -DCMAKE_INSTALL_PREFIX=/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam
+[1.336s] Invoking command in '/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam -- -j8 -l8
+[1.405s] Built target ament_cmake_python_symlink_openvio_slam_setup
+[1.405s] Built target ament_cmake_python_symlink_openvio_slam
+[1.700s] running egg_info
+[1.735s] writing openvio_slam.egg-info/PKG-INFO
+[1.735s] writing dependency_links to openvio_slam.egg-info/dependency_links.txt
+[1.735s] writing top-level names to openvio_slam.egg-info/top_level.txt
+[1.835s] reading manifest file 'openvio_slam.egg-info/SOURCES.txt'
+[1.837s] writing manifest file 'openvio_slam.egg-info/SOURCES.txt'
+[1.865s] Built target ament_cmake_python_build_openvio_slam_egg
+[1.878s] Invoked command in '/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam -- -j8 -l8
+[1.889s] Invoking command in '/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam
+[1.898s] -- Install configuration: ""
+[1.898s] -- Execute custom install script
+[1.899s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/environment/pythonpath.sh
+[1.899s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/environment/pythonpath.dsv
+[1.900s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam-1.0.0-py3.12.egg-info/PKG-INFO
+[1.900s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam-1.0.0-py3.12.egg-info/SOURCES.txt
+[1.900s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam-1.0.0-py3.12.egg-info/dependency_links.txt
+[1.901s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam-1.0.0-py3.12.egg-info/top_level.txt
+[1.903s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/__init__.py
+[1.903s] -- Symlinking: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/camera_info_publisher.py
+[1.914s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints/__init__.py
+[1.914s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints/planar.py
+[1.914s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints/zupt.py
+[1.915s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator/__init__.py
+[1.915s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator/marginalization.py
+[1.915s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator/measurement.py
+[1.916s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator/msckf.py
+[1.916s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator/null_space.py
+[1.916s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator/state.py
+[1.916s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/frontend/__init__.py
+[1.917s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/frontend/feature_manager.py
+[1.917s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/frontend/klt_tracker.py
+[1.917s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/frontend/orb_extractor.py
+[1.917s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/frontend/undistortion.py
+[1.918s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/imu/__init__.py
+[1.918s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/imu/imu_publisher_node.py
+[1.918s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/imu/initializer.py
+[1.919s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/imu/noise_model.py
+[1.919s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/imu/preintegrator.py
+[1.919s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/loop_closure/__init__.py
+[1.919s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/loop_closure/detector.py
+[1.920s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/loop_closure/pose_graph.py
+[1.920s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/loop_closure/verifier.py
+[1.920s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/loop_closure/vocabulary.py
+[1.920s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/map/__init__.py
+[1.928s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/map/keyframe.py
+[1.928s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/map/map_manager.py
+[1.928s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/map/map_point.py
+[1.929s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/map/triangulator.py
+[1.929s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/persistence/__init__.py
+[1.929s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/persistence/map_serializer.py
+[1.930s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/persistence/relocalization.py
+[1.936s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/ros/__init__.py
+[1.936s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/ros/publishers.py
+[1.936s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/ros/vio_node.py
+[1.937s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/utils/__init__.py
+[1.937s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/utils/quaternion.py
+[1.937s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/utils/se3.py
+[1.937s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/utils/so3.py
+[1.938s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam//launch/openvio_slam.launch.py
+[1.938s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam//config/extrinsic.yaml
+[1.938s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam//config/openvio_slam.rviz
+[1.938s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam//config/slam.yaml
+[1.939s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/controller.js
+[1.939s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/index.html
+[1.939s] -- Symlinking: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/phone/index.html
+[1.949s] -- Symlinking: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/phone/index_v6_1789200147.html
+[1.959s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/style.css
+[1.959s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/ament_index/resource_index/package_run_dependencies/openvio_slam
+[1.960s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/ament_index/resource_index/parent_prefix_path/openvio_slam
+[1.960s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/environment/ament_prefix_path.sh
+[1.960s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/environment/ament_prefix_path.dsv
+[1.961s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/environment/path.sh
+[1.961s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/environment/path.dsv
+[1.962s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/local_setup.bash
+[1.962s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/local_setup.sh
+[1.962s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/local_setup.zsh
+[1.962s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/local_setup.dsv
+[1.962s] -- Symlinking: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/package.dsv
+[1.973s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/ament_index/resource_index/packages/openvio_slam
+[1.973s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/cmake/openvio_slamConfig.cmake
+[1.973s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/cmake/openvio_slamConfig-version.cmake
+[1.973s] -- Up-to-date symlink: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/package.xml
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam'...
+[2.021s] Compiling '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/camera_info_publisher.py'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/estimator'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/frontend'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/imu'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/loop_closure'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/map'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/persistence'...
+[2.021s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/ros'...
+[2.022s] Listing '/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/utils'...
+[2.029s] -- Up-to-date: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/openvio_slam/openvio_slam_node
+[2.029s] -- Up-to-date: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/openvio_slam/imu_publisher_node
+[2.029s] -- Installing: /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/openvio_slam/web_controller_node
+[2.032s] Invoked command in '/home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/jaideepchouhan/slam_ws/src/openvio_slam/build/openvio_slam

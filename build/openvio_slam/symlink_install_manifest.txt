@@ -5,6 +5,7 @@
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam-1.0.0-py3.12.egg-info/dependency_links.txt
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam-1.0.0-py3.12.egg-info/top_level.txt
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/__init__.py
+/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/camera_info_publisher.py
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints/__init__.py
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints/planar.py
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/lib/python3.12/site-packages/openvio_slam/constraints/zupt.py
@@ -50,6 +51,8 @@
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam//config/slam.yaml
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/controller.js
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/index.html
+/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/phone/index.html
+/home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/phone/index_v6_1789200147.html
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/openvio_slam/web_controller//static/style.css
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/ament_index/resource_index/package_run_dependencies/openvio_slam
 /home/jaideepchouhan/slam_ws/src/openvio_slam/install/openvio_slam/share/ament_index/resource_index/parent_prefix_path/openvio_slam
